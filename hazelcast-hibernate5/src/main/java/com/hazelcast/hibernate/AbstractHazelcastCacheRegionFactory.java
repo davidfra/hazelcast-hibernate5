@@ -80,20 +80,25 @@ public abstract class AbstractHazelcastCacheRegionFactory implements RegionFacto
     public void start(final SessionFactoryOptions options, final Properties properties) throws CacheException {
         log.info("Starting up " + getClass().getSimpleName());
         if (instance == null || !instance.getLifecycleService().isRunning()) {
-            String defaultFactory = DefaultHazelcastInstanceFactory.class.getName();
-            String factoryName = properties.getProperty(CacheEnvironment.HAZELCAST_FACTORY, defaultFactory);
-            ClassLoader cl = Thread.currentThread().getContextClassLoader();
-            try {
-                Class<IHazelcastInstanceFactory> factory =
-                        (Class<IHazelcastInstanceFactory>) Class.forName(factoryName, true, cl);
-                instanceLoader = factory.newInstance().createInstanceLoader(properties);
-            } catch (ClassNotFoundException e) {
-                throw new CacheException("Failed to set up hazelcast instance factory", e);
-            } catch (InstantiationException e) {
-                throw new CacheException("Failed to set up hazelcast instance factory", e);
-            } catch (IllegalAccessException e) {
-                throw new CacheException("Failed to set up hazelcast instance factory", e);
+            IHazelcastInstanceFactory instanceFactory = null;
+            String factoryName = properties.getProperty(CacheEnvironment.HAZELCAST_FACTORY);
+            if(factoryName == null){
+                instanceFactory = new DefaultHazelcastInstanceFactory();
+            } else {
+                ClassLoader cl = Thread.currentThread().getContextClassLoader();
+                try {
+                    Class<IHazelcastInstanceFactory> factoryClass =
+                            (Class<IHazelcastInstanceFactory>) Class.forName(factoryName, true, cl);
+                    instanceFactory = factoryClass.newInstance();
+                } catch (ClassNotFoundException e) {
+                    throw new CacheException("Failed to set up hazelcast instance factory", e);
+                } catch (InstantiationException e) {
+                    throw new CacheException("Failed to set up hazelcast instance factory", e);
+                } catch (IllegalAccessException e) {
+                    throw new CacheException("Failed to set up hazelcast instance factory", e);
+                }
             }
+            instanceLoader = instanceFactory.createInstanceLoader(properties);
             instance = instanceLoader.loadInstance();
         }
         cleanupService = new CleanupService(instance.getName());
